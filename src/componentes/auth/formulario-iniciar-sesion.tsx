@@ -6,17 +6,22 @@ import Link from "next/link";
 import { iniciarSesion } from "@/app/acciones/auth";
 import { Campo } from "@/componentes/ui/campo";
 import { Boton } from "@/componentes/ui/boton";
-import { User, Lock, AlertCircle, Eye, EyeOff } from "lucide-react";
+import UserIcon from "@/componentes/ui/iconos/user-icon";
+import LockIcon from "@/componentes/ui/iconos/lock-icon";
+import TriangleAlertIcon from "@/componentes/ui/iconos/triangle-alert-icon";
+import EyeIcon from "@/componentes/ui/iconos/eye-icon";
+import EyeOffIcon from "@/componentes/ui/iconos/eye-off-icon";
 import type { EstadoAccion } from "@/lib/utilidades";
+import type { ErroresIniciarSesion } from "@/lib/esquemas/auth";
 
 export function FormularioIniciarSesion() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
   const [recordarme, setRecordarme] = useState(false);
-  const [state, formAction, pendiente] = useActionState<EstadoAccion, FormData>(
-    iniciarSesion,
-    {}
-  );
+  const [state, formAction, pendiente] = useActionState<
+    EstadoAccion<ErroresIniciarSesion>,
+    FormData
+  >(iniciarSesion, {});
 
   useEffect(() => {
     const saved = localStorage.getItem("usuario_recordado");
@@ -40,7 +45,7 @@ export function FormularioIniciarSesion() {
     <form
       action={formAction}
       onSubmit={handleSubmit}
-      className="sm:w-[416px] w-full text-center relative mt-[30px] pt-[79px] border border-gray-300/60 dark:border-gray-700 rounded-2xl px-[36px] py-11 bg-white dark:bg-gray-900 shadow-sm"
+      className="sm:w-[416px] w-full text-center relative mt-[30px] pt-[79px] border border-gray-300/60  rounded-2xl px-[36px] py-11 bg-white  shadow-sm"
       noValidate
     >
       <div className="absolute -top-[60px] left-1/2 -translate-x-1/2 size-[121px] rounded-full bg-white overflow-hidden flex items-center justify-center p-2">
@@ -54,10 +59,10 @@ export function FormularioIniciarSesion() {
         />
       </div>
 
-      <h1 className="text-gray-900 dark:text-gray-100 text-[26px] font-bold font-heading">
+      <h1 className="text-gray-900  text-[26px] font-bold font-heading">
         Iniciar Sesión
       </h1>
-      <p className="text-gray-500 dark:text-gray-400 text-[15px] mt-2">
+      <p className="text-gray-500  text-[15px] mt-2">
         Ingrese sus credenciales para continuar
       </p>
 
@@ -68,7 +73,7 @@ export function FormularioIniciarSesion() {
           type="text"
           placeholder="Nombre de usuario"
           autoComplete="username"
-          icono={<User />}
+          icono={<UserIcon />}
           error={state?.errores?.usuario?.[0]}
         />
 
@@ -77,7 +82,7 @@ export function FormularioIniciarSesion() {
           type={mostrarContrasena ? "text" : "password"}
           placeholder="Contraseña"
           autoComplete="current-password"
-          icono={<Lock />}
+          icono={<LockIcon />}
           iconoDerecha={
             <button
               type="button"
@@ -86,7 +91,7 @@ export function FormularioIniciarSesion() {
               aria-label={mostrarContrasena ? "Ocultar contraseña" : "Mostrar contraseña"}
               className="flex items-center justify-center cursor-pointer"
             >
-              {mostrarContrasena ? <EyeOff /> : <Eye />}
+              {mostrarContrasena ? <EyeOffIcon /> : <EyeIcon />}
             </button>
           }
           error={state?.errores?.contrasena?.[0]}
@@ -105,7 +110,7 @@ export function FormularioIniciarSesion() {
             className={`size-[13px] rounded shrink-0 border transition-colors duration-150 flex items-center justify-center ${
               recordarme
                 ? "bg-primary-500 border-primary-500"
-                : "bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600 hover:border-primary-400"
+                : "bg-white  border-gray-300  hover:border-primary-400"
             }`}
           >
             {recordarme && (
@@ -114,14 +119,14 @@ export function FormularioIniciarSesion() {
               </svg>
             )}
           </span>
-          <span className="text-[13px] text-gray-600 dark:text-gray-400 select-none">
+          <span className="text-[13px] text-gray-600  select-none">
             Recordarme
           </span>
         </button>
 
         <Link
           href="/recuperar-contrasena"
-          className="text-[13px] text-gray-600 dark:text-gray-400 font-medium inline transition-colors duration-200 hover:bg-gray-400/25 dark:hover:bg-gray-600/25 rounded-full px-3 py-1"
+          className="text-[13px] text-gray-600  font-medium inline transition-colors duration-200 hover:bg-gray-400/25  rounded-full px-3 py-1"
         >
           ¿Olvidaste tu contraseña?
         </Link>
@@ -130,9 +135,9 @@ export function FormularioIniciarSesion() {
       {state?.error && (
         <div
           role="alert"
-          className="mt-[18px] flex items-center gap-[9px] text-red-500 dark:text-red-400 text-[15px] bg-red-50 dark:bg-red-900/20 rounded-lg px-[18px] py-[9px]"
+          className="mt-[18px] flex items-center gap-[9px] text-red-500  text-[15px] bg-red-50  rounded-lg px-[18px] py-[9px]"
         >
-          <AlertCircle className="size-[18px] shrink-0" />
+          <TriangleAlertIcon className="size-[18px] shrink-0" />
           <span>{state.error}</span>
         </div>
       )}
@@ -146,10 +151,10 @@ export function FormularioIniciarSesion() {
         {pendiente ? "Ingresando..." : "Iniciar Sesión"}
       </Boton>
 
-      <div className="mt-7 border-t border-gray-300/40 dark:border-gray-700/40" />
+      <div className="mt-7 border-t border-gray-300/40 " />
 
       <p className="mt-4 text-center">
-        <span className="text-[13px] text-gray-600 dark:text-gray-400 font-medium transition-colors duration-200 hover:bg-gray-400/25 dark:hover:bg-gray-600/25 rounded-full px-3 py-1 cursor-pointer">
+        <span className="text-[13px] text-gray-600  font-medium transition-colors duration-200 hover:bg-gray-400/25  rounded-full px-3 py-1 cursor-pointer">
           Consultar estado de Recién Nacido
         </span>
       </p>

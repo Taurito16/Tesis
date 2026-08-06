@@ -1,16 +1,21 @@
-﻿import type { LucideIcon } from "lucide-react";
-import { Users, Activity, Baby, Search, BarChart3 } from "lucide-react";
+﻿import type { ComponentType } from "react";
+import type { AnimatedIconProps } from "@/componentes/ui/iconos/types";
+import UsersIcon from "@/componentes/ui/iconos/users-icon";
+import AccessibilityIcon from "@/componentes/ui/iconos/accessibility-icon";
+import ScanHeartIcon from "@/componentes/ui/iconos/scan-heart-icon";
+import MagnifierIcon from "@/componentes/ui/iconos/magnifier-icon";
+import ChartBarIcon from "@/componentes/ui/iconos/chart-bar-icon";
 
 export type ElementoNavegacion = {
   ruta: string;
   etiqueta: string;
-  icono: LucideIcon;
+  icono: ComponentType<AnimatedIconProps>;
 };
 
 export const elementosNavegacion: ElementoNavegacion[] = [
-  { ruta: "/usuarios", etiqueta: "Gestión de Usuarios", icono: Users },
-  { ruta: "/pacientes", etiqueta: "Seguimiento de Pacientes", icono: Activity },
-  { ruta: "/recien-nacidos", etiqueta: "Recién Nacidos", icono: Baby },
-  { ruta: "/consulta-rapida", etiqueta: "Consulta Rápida", icono: Search },
-  { ruta: "/reportes", etiqueta: "Reportes", icono: BarChart3 },
+  { ruta: "/usuarios", etiqueta: "Gestión de Usuarios", icono: UsersIcon },
+  { ruta: "/pacientes", etiqueta: "Seguimiento de Pacientes", icono: AccessibilityIcon },
+  { ruta: "/recien-nacidos", etiqueta: "Recién Nacidos", icono: ScanHeartIcon },
+  { ruta: "/consulta-rapida", etiqueta: "Consulta Rápida", icono: MagnifierIcon },
+  { ruta: "/reportes", etiqueta: "Reportes", icono: ChartBarIcon },
 ];

@@ -1,16 +1,25 @@
 "use server";
 
-import { EsquemaIniciarSesion, EsquemaCambiarContrasena } from "@/lib/esquemas/auth";
+import {
+  EsquemaIniciarSesion,
+  EsquemaCambiarContrasena,
+  type ErroresIniciarSesion,
+  type ErroresCambiarContrasena,
+} from "@/lib/esquemas/auth";
 import { crearClienteServidor } from "@/lib/supabase/servidor";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import type { EstadoAccion } from "@/lib/utilidades";
 import { normalizarUsuario } from "@/lib/utilidades";
 
-type PerfilLogin = {
+type ContextoLogin = {
+  bloqueado_ip: boolean;
+  intentos_por_hora: number;
+  conteo_fallos: number;
   id: string;
   correo: string;
   activo: boolean;
+  rol_id: number;
   contraseña_cambiada_en: string | null;
 };
 
@@ -44,15 +53,15 @@ async function safeRpc(
 }
 
 export async function iniciarSesion(
-  prevState: EstadoAccion,
+  prevState: EstadoAccion<ErroresIniciarSesion>,
   formData: FormData
-): Promise<EstadoAccion> {
+): Promise<EstadoAccion<ErroresIniciarSesion>> {
   const datos = Object.fromEntries(formData);
   const validacion = EsquemaIniciarSesion.safeParse(datos);
 
   if (!validacion.success) {
     return {
-      errores: validacion.error.flatten().fieldErrors as Record<string, string[]>,
+      errores: validacion.error.flatten().fieldErrors,
     };
   }
 
@@ -60,100 +69,94 @@ export async function iniciarSesion(
   const usuarioNormalizado = normalizarUsuario(usuario);
 
   try {
+    console.time("login:total");
     const supabase = await crearClienteServidor();
     const ip = await obtenerIp();
 
-    const { data: ipLimit } = await supabase
-      .rpc("verificar_rate_limit_ip", { direccion_ip: ip })
-      .single();
-
-    if (ipLimit && (ipLimit as Record<string, unknown>).bloqueado) {
-      await delay(30000);
-      return { error: "Credenciales inválidas" };
-    }
-
-    const { data: fallos } = await supabase
-      .rpc("obtener_fallos_usuario", { usuario_buscar: usuarioNormalizado })
-      .single();
-
-    const conteoFallos = ((fallos as Record<string, unknown>)?.conteo as number) ?? 0;
-    const demora = delayProgressivo(conteoFallos);
-
-    if (demora > 0) {
-      await delay(demora);
-    }
-
-    const { data: perfil, error: errorPerfil } = await supabase
-      .rpc("obtener_perfil_para_login", { usuario_buscar: usuarioNormalizado })
-      .single();
-
-    if (errorPerfil || !perfil) {
-      await safeRpc(supabase, "registrar_intento_ip", { direccion_ip: ip });
-      return { error: "Credenciales inválidas" };
-    }
-
-    const perfilData = perfil as unknown as PerfilLogin;
-
-    const { data: authData, error: errorAuth } =
-      await supabase.auth.signInWithPassword({
-        email: perfilData.correo,
-        password: contrasena,
-      });
-
-    await safeRpc(supabase, "registrar_intento_ip", { direccion_ip: ip });
-
-    if (errorAuth || !authData?.user) {
-      await safeRpc(supabase, "registrar_intento_login", {
+    console.time("login:contexto");
+    const { data: contexto, error: errorContexto } = await supabase
+      .rpc("obtener_contexto_login", {
         usuario_buscar: usuarioNormalizado,
-        fue_exitoso: false,
         direccion_ip: ip,
-      });
-      await safeRpc(supabase, "registrar_auditoria_auth", {
-        p_accion: "inicio_sesion_fallido",
+      })
+      .maybeSingle();
+    console.timeEnd("login:contexto");
+
+    const contextoData = contexto as unknown as ContextoLogin | null;
+
+    if (errorContexto || !contextoData) {
+      await safeRpc(supabase, "registrar_login_fallido", {
         p_usuario: usuarioNormalizado,
         p_ip_address: ip,
         p_detalles: { motivo: "credenciales_invalidas" },
       });
+      console.timeEnd("login:total");
       return { error: "Credenciales inválidas" };
     }
 
-    if (!perfilData.activo) {
-      await safeRpc(supabase, "registrar_intento_login", {
-        usuario_buscar: usuarioNormalizado,
-        fue_exitoso: false,
-        direccion_ip: ip,
+    console.log(
+      `login:contexto datos -> bloqueado=${contextoData.bloqueado_ip} fallos=${contextoData.conteo_fallos} rol=${contextoData.rol_id}`
+    );
+
+    if (contextoData.bloqueado_ip) {
+      await delay(30000);
+      console.timeEnd("login:total");
+      return { error: "Credenciales inválidas" };
+    }
+
+    const demora = delayProgressivo(contextoData.conteo_fallos);
+    if (demora > 0) {
+      console.log(`login:delay -> ${demora}ms (NIST, por intentos fallidos)`);
+      await delay(demora);
+    }
+
+    console.time("login:gotrue");
+    const { data: authData, error: errorAuth } =
+      await supabase.auth.signInWithPassword({
+        email: contextoData.correo,
+        password: contrasena,
       });
-      await safeRpc(supabase, "registrar_auditoria_auth", {
-        p_accion: "inicio_sesion_fallido",
+    console.timeEnd("login:gotrue");
+
+    if (errorAuth || !authData?.user) {
+      await safeRpc(supabase, "registrar_login_fallido", {
+        p_usuario: usuarioNormalizado,
+        p_ip_address: ip,
+        p_detalles: { motivo: "credenciales_invalidas" },
+      });
+      console.timeEnd("login:total");
+      return { error: "Credenciales inválidas" };
+    }
+
+    if (!contextoData.activo) {
+      await safeRpc(supabase, "registrar_login_fallido", {
         p_usuario: usuarioNormalizado,
         p_ip_address: ip,
         p_detalles: { motivo: "cuenta_inactiva" },
       });
+      await supabase.auth.signOut();
+      console.timeEnd("login:total");
       return { error: "Credenciales inválidas" };
     }
 
-    await safeRpc(supabase, "limpiar_intentos_usuario", {
-      usuario_buscar: usuarioNormalizado,
-    });
-
-    const ahora = new Date().toISOString();
-    await supabase
-      .from("perfiles")
-      .update({ ultimo_acceso_en: ahora })
-      .eq("id", authData.user.id);
-
-    await safeRpc(supabase, "registrar_auditoria_auth", {
-      p_accion: "inicio_sesion_exitoso",
+    console.time("login:registro");
+    await safeRpc(supabase, "registrar_login_exitoso", {
       p_usuario_id: authData.user.id,
       p_usuario: usuarioNormalizado,
       p_ip_address: ip,
     });
+    console.timeEnd("login:registro");
 
-    if (!perfilData.contraseña_cambiada_en) {
+    console.timeEnd("login:total");
+
+    if (!contextoData.contraseña_cambiada_en) {
       redirect("/auth/cambiar-contrasena");
     }
 
-    redirect("/");
+    if (contextoData.rol_id === 1 || contextoData.rol_id === 2) {
+      redirect("/usuarios");
+    }
+    redirect("/pacientes");
   } catch (error) {
     if ((error as { digest?: string })?.digest) {
       throw error;
@@ -179,15 +182,15 @@ export async function cerrarSesion(): Promise<void> {
 }
 
 export async function cambiarContrasena(
-  prevState: EstadoAccion,
+  prevState: EstadoAccion<ErroresCambiarContrasena>,
   formData: FormData
-): Promise<EstadoAccion> {
+): Promise<EstadoAccion<ErroresCambiarContrasena>> {
   const datos = Object.fromEntries(formData);
   const validacion = EsquemaCambiarContrasena.safeParse(datos);
 
   if (!validacion.success) {
     return {
-      errores: validacion.error.flatten().fieldErrors as Record<string, string[]>,
+      errores: validacion.error.flatten().fieldErrors,
     };
   }
 

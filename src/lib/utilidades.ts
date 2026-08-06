@@ -1,3 +1,17 @@
+export function formatearIniciales(texto: string): string {
+  const palabras = texto.trim().split(/\s+/).filter(Boolean);
+  if (palabras.length === 0) return "U";
+  const primera = palabras[0][0] ?? "";
+  const ultima = palabras.length > 1 ? palabras[palabras.length - 1][0] ?? "" : "";
+  return (primera + ultima).toUpperCase();
+}
+
+export function formatearNombreUsuario(nombre?: string | null, apellidos?: string | null): string {
+  const primerNombre = (nombre ?? "").trim().split(/\s+/)[0] ?? "";
+  const primerApellido = (apellidos ?? "").trim().split(/\s+/)[0] ?? "";
+  return [primerNombre, primerApellido].filter(Boolean).join(" ").toUpperCase();
+}
+
 export function normalizarUsuario(texto: string): string {
   return texto
     .toLowerCase()

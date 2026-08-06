@@ -1,10 +1,10 @@
-﻿"use client";
+"use client";
 
 import { useState, useRef, useLayoutEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utilidades";
-import { ChevronLeft } from "lucide-react";
+import ArrowBackIcon from "@/componentes/ui/iconos/arrow-back-icon";
 import { elementosNavegacion } from "./elementos-navegacion";
 
 export function BarraLateral() {
@@ -34,7 +34,7 @@ export function BarraLateral() {
       <aside
         ref={refSidebar}
         className={cn(
-          "mx-3 my-3 rounded-[32px] bg-primary-500 dark:bg-primary-700 flex flex-col shrink-0 sticky top-3 max-h-[calc(100vh-1.5rem)]",
+          "mx-3 my-3 rounded-[32px] bg-primary-500  flex flex-col shrink-0 sticky top-3 max-h-[calc(100vh-1.5rem)]",
           "overflow-hidden",
           inicializado && "transition-[width] duration-300 ease-in-out"
         )}
@@ -50,12 +50,12 @@ export function BarraLateral() {
               href={item.ruta}
               className={cn(
                 "group relative flex items-center gap-3 w-full py-3 pl-[7.5px] pr-4 text-sm font-medium whitespace-nowrap",
-                activo ? "text-gray-700 dark:text-gray-300" : "text-white"
+                activo ? "text-gray-700 " : "text-white"
               )}
             >
               <div
                 className={cn(
-                  "absolute inset-y-[1.5px] -left-1 -right-4 bg-gray-50 dark:bg-gray-950 rounded-l-full",
+                  "absolute inset-y-[1.5px] -left-1 -right-4 bg-gray-50  rounded-l-full",
                   "origin-right transition-transform duration-500 ease-in-out",
                   activo ? "scale-x-100" : "scale-x-0"
                 )}
@@ -92,7 +92,7 @@ export function BarraLateral() {
           >
             Ocultar
           </span>
-          <ChevronLeft className={cn("size-5 shrink-0 transition-transform duration-300 ease-in-out", colapsado && "rotate-180")} />
+          <ArrowBackIcon className={cn("size-5 shrink-0 transition-transform duration-300 ease-in-out", colapsado && "rotate-180")} />
         </button>
       </div>
     </aside>

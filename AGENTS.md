@@ -14,9 +14,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## Commands
 ```
-npm run dev        # dev server on localhost:3000
-npm run build      # builds + typechecks (no separate typecheck script)
-npm run lint       # ESLint only
+pnpm install              # install dependencies (use --frozen-lockfile in CI)
+pnpm dev                  # dev server on localhost:3000
+pnpm build                # builds + typechecks (no separate typecheck script)
+pnpm lint                 # ESLint only
 ```
 No test framework is configured.
 
@@ -33,14 +34,12 @@ DB migration: `supabase/migracion.sql` — must be run manually in Supabase SQL 
 - Spanish-language hospital auth system (labels, routes, component names in ES).
 - Server Actions in `src/app/acciones/auth.ts` (`"use server"`).
 - Zod v4 schemas in `src/lib/esquemas/auth.ts`.
-- Custom theme provider (no next-themes): `localStorage` + `.dark` class toggle.
-- Progressive login delay via Supabase RPC (`obtener_fallos_usuario`), IP rate limiting.
+- Progressive login delay via Supabase RPC (`obtener_contexto_login`), IP rate limiting.
 - Path alias `@/*` → `./src/*`.
 - Route group `(panel)/` wraps dashboard pages.
 
 ## Tailwind CSS v4
 - `@import "tailwindcss"` (not `@tailwind` directives).
-- `@custom-variant dark (&:where(.dark, .dark *));` for dark mode.
 - Custom `cn()` utility from `src/lib/utilidades.ts`.
 
 ## Conventions

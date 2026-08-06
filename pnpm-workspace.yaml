@@ -1,0 +1,13 @@
+# Configuración pnpm v11 — política de seguridad explícita.
+# Por defecto pnpm bloquea los scripts de build de dependencias (strictDepBuilds).
+# Solo se permiten los paquetes confiables listados aquí.
+allowBuilds:
+  sharp: true
+  unrs-resolver: true
+
+# Overrides: forzar versiones parcheadas que Next 16 fija en versiones vulnerables.
+# postcss 8.4.31 (fija por Next) → CVEs de sourceMappingURL; parche en >=8.5.18.
+# sharp <0.35.0 → CVEs libvips; parche en >=0.35.0.
+overrides:
+  postcss: ^8.5.18
+  sharp: ^0.35.0

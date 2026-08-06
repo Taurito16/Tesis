@@ -3,9 +3,9 @@ import { z } from "zod";
 export const EsquemaIniciarSesion = z.object({
   usuario: z
     .string()
+    .trim()
     .min(1, "El nombre de usuario es requerido")
-    .max(50, "El nombre de usuario no puede exceder 50 caracteres")
-    .trim(),
+    .max(50, "El nombre de usuario no puede exceder 50 caracteres"),
   contrasena: z
     .string()
     .min(1, "La contraseña es requerida"),
@@ -33,4 +33,6 @@ export const EsquemaCambiarContrasena = z
   });
 
 export type DatosIniciarSesion = z.infer<typeof EsquemaIniciarSesion>;
+export type ErroresIniciarSesion = Partial<Record<keyof DatosIniciarSesion, string[]>>;
 export type DatosCambiarContrasena = z.infer<typeof EsquemaCambiarContrasena>;
+export type ErroresCambiarContrasena = Partial<Record<keyof DatosCambiarContrasena, string[]>>;

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, PT_Sans } from "next/font/google";
 import "./globals.css";
-import { ProveedorTema } from "@/componentes/proveedores/proveedor-tema";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,11 +32,8 @@ export default function RootLayout({
     <html
       lang="es"
       className={`${geistSans.variable} ${geistMono.variable} ${ptSans.variable} antialiased`}
-      suppressHydrationWarning
     >
-      <body className="min-h-dvh flex flex-col">
-        <ProveedorTema>{children}</ProveedorTema>
-      </body>
+      <body className="min-h-dvh flex flex-col">{children}</body>
     </html>
   );
 }
