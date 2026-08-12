@@ -15,6 +15,7 @@ import { obtenerRolActual } from "@/lib/supabase/usuarios-servidor";
 import { generarToken, hashToken } from "@/lib/invitaciones";
 import { enviarInvitacion, obtenerUrlBase } from "@/lib/correo";
 import type { EstadoAccion } from "@/lib/utilidades";
+import { obtenerLogger } from "@/lib/registro";
 
 async function obtenerRolPermitido(rolSolicitado: number): Promise<
   | { ok: true }
@@ -84,6 +85,8 @@ export async function crearUsuario(
     return { error: permiso.error };
   }
 
+  const logger = await obtenerLogger();
+
   try {
     const supabase = await crearClienteServidor();
     const {
@@ -103,7 +106,15 @@ export async function crearUsuario(
       .maybeSingle();
 
     if (errExistente) {
-      console.error("Error al verificar duplicados:", errExistente);
+      logger.error(
+        {
+          accion: "crear_usuario",
+          err: errExistente,
+          usuario_id: creador.id,
+          rol_id,
+        },
+        "Error al verificar duplicados"
+      );
       return { error: "Error interno al verificar la disponibilidad." };
     }
 
@@ -129,11 +140,15 @@ export async function crearUsuario(
     });
 
     if (errorAuth) {
-      console.error(
-        "Error al crear usuario:",
-        `code=${errorAuth.code ?? "sin-codigo"}`,
-        `message=${errorAuth.message}`,
-        errorAuth
+      logger.error(
+        {
+          accion: "crear_usuario",
+          err: errorAuth,
+          code: errorAuth.code ?? "sin-codigo",
+          usuario_id: creador.id,
+          rol_id,
+        },
+        "Error al crear usuario"
       );
       if (errorAuth.code === "email_exists") {
         return { errores: { correo: ["El correo electrónico ya está en uso"] } };
@@ -155,7 +170,14 @@ export async function crearUsuario(
       .eq("id", creado.user.id);
 
     if (errHash) {
-      console.error("Error al guardar invitación:", errHash);
+      logger.error(
+        {
+          accion: "crear_usuario",
+          err: errHash,
+          usuario_id: creado.user.id,
+        },
+        "Error al guardar invitación"
+      );
       return { error: "Error al preparar la invitación. Intente nuevamente." };
     }
 
@@ -170,7 +192,14 @@ export async function crearUsuario(
     try {
       await enviarInvitacion(correo, nombres, link);
     } catch (errorCorreo) {
-      console.error("Error al enviar invitación:", errorCorreo);
+      logger.error(
+        {
+          accion: "crear_usuario",
+          err: errorCorreo,
+          usuario_id: creado.user.id,
+        },
+        "Error al enviar invitación"
+      );
       revalidatePath("/usuarios");
       return {
         exito: "Usuario creado. No se pudo enviar el correo de invitación.",
@@ -183,7 +212,10 @@ export async function crearUsuario(
     if ((error as { digest?: string })?.digest) {
       throw error;
     }
-    console.error("Error en crearUsuario:", error);
+    logger.error(
+      { accion: "crear_usuario", err: error, usuario },
+      "Error en crearUsuario"
+    );
     return { error: "Error interno del servidor. Intente nuevamente." };
   }
 }
@@ -202,6 +234,8 @@ export async function completarRegistro(
   }
 
   const { contrasena, token } = validacion.data;
+
+  const logger = await obtenerLogger();
 
   try {
     const admin = crearClienteAdmin();
@@ -225,7 +259,15 @@ export async function completarRegistro(
     await admin.rpc("registrar_intento_ip", { direccion_ip: ip });
 
     if (errInvitacion || !invitacion) {
-      console.error("Error al validar invitación:", errInvitacion);
+      logger.error(
+        {
+          accion: "completar_registro",
+          err: errInvitacion,
+          code: errInvitacion?.code ?? "sin-codigo",
+          ip,
+        },
+        "Error al validar invitación"
+      );
       return {
         error: errInvitacion?.message ?? "El enlace es inválido o ha expirado",
       };
@@ -241,7 +283,14 @@ export async function completarRegistro(
     );
 
     if (errorUpdate) {
-      console.error("Error al actualizar contraseña:", errorUpdate);
+      logger.error(
+        {
+          accion: "completar_registro",
+          err: errorUpdate,
+          usuario_id: usuarioId,
+        },
+        "Error al configurar contraseña"
+      );
       return {
         error: "Error al configurar la contraseña. Intente nuevamente.",
       };
@@ -258,7 +307,10 @@ export async function completarRegistro(
     if ((error as { digest?: string })?.digest) {
       throw error;
     }
-    console.error("Error en completarRegistro:", error);
+    logger.error(
+      { accion: "completar_registro", err: error },
+      "Error en completarRegistro"
+    );
     return { error: "Error interno del servidor. Intente nuevamente." };
   }
 }

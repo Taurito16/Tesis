@@ -11,6 +11,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import type { EstadoAccion } from "@/lib/utilidades";
 import { normalizarUsuario } from "@/lib/utilidades";
+import { obtenerLogger } from "@/lib/registro";
 
 type ContextoLogin = {
   bloqueado_ip: boolean;
@@ -67,20 +68,21 @@ export async function iniciarSesion(
 
   const { usuario, contrasena } = validacion.data;
   const usuarioNormalizado = normalizarUsuario(usuario);
+  const logger = await obtenerLogger();
 
   try {
-    console.time("login:total");
+    const inicioTotal = Date.now();
     const supabase = await crearClienteServidor();
     const ip = await obtenerIp();
 
-    console.time("login:contexto");
+    const inicioContexto = Date.now();
     const { data: contexto, error: errorContexto } = await supabase
       .rpc("obtener_contexto_login", {
         usuario_buscar: usuarioNormalizado,
         direccion_ip: ip,
       })
       .maybeSingle();
-    console.timeEnd("login:contexto");
+    const duracionContexto = Date.now() - inicioContexto;
 
     const contextoData = contexto as unknown as ContextoLogin | null;
 
@@ -90,33 +92,64 @@ export async function iniciarSesion(
         p_ip_address: ip,
         p_detalles: { motivo: "credenciales_invalidas" },
       });
-      console.timeEnd("login:total");
+      logger.warn(
+        {
+          accion: "iniciar_sesion",
+          motivo: "contexto_no_disponible",
+          ip,
+          duracion_ms: Date.now() - inicioTotal,
+        },
+        "Login fallido: contexto no disponible"
+      );
       return { error: "Credenciales inválidas" };
     }
 
-    console.log(
-      `login:contexto datos -> bloqueado=${contextoData.bloqueado_ip} fallos=${contextoData.conteo_fallos} rol=${contextoData.rol_id}`
+    logger.debug(
+      {
+        accion: "iniciar_sesion",
+        bloqueado_ip: contextoData.bloqueado_ip,
+        intentos_fallidos: contextoData.conteo_fallos,
+        rol_id: contextoData.rol_id,
+        duracion_ms_contexto: duracionContexto,
+        ip,
+      },
+      "Login: contexto obtenido"
     );
 
     if (contextoData.bloqueado_ip) {
       await delay(30000);
-      console.timeEnd("login:total");
+      logger.warn(
+        {
+          accion: "iniciar_sesion",
+          motivo: "ip_bloqueada",
+          ip,
+          duracion_ms: Date.now() - inicioTotal,
+        },
+        "Login bloqueado por IP"
+      );
       return { error: "Credenciales inválidas" };
     }
 
     const demora = delayProgressivo(contextoData.conteo_fallos);
     if (demora > 0) {
-      console.log(`login:delay -> ${demora}ms (NIST, por intentos fallidos)`);
+      logger.debug(
+        {
+          accion: "iniciar_sesion",
+          demora_ms: demora,
+          ip,
+        },
+        "Login: demora progresiva (NIST)"
+      );
       await delay(demora);
     }
 
-    console.time("login:gotrue");
+    const inicioGotrue = Date.now();
     const { data: authData, error: errorAuth } =
       await supabase.auth.signInWithPassword({
         email: contextoData.correo,
         password: contrasena,
       });
-    console.timeEnd("login:gotrue");
+    const duracionGotrue = Date.now() - inicioGotrue;
 
     if (errorAuth || !authData?.user) {
       await safeRpc(supabase, "registrar_login_fallido", {
@@ -124,7 +157,17 @@ export async function iniciarSesion(
         p_ip_address: ip,
         p_detalles: { motivo: "credenciales_invalidas" },
       });
-      console.timeEnd("login:total");
+      logger.warn(
+        {
+          accion: "iniciar_sesion",
+          motivo: "credenciales_invalidas",
+          code: errorAuth?.code ?? "sin-codigo",
+          ip,
+          duracion_ms: Date.now() - inicioTotal,
+          duracion_ms_gotrue: duracionGotrue,
+        },
+        "Login fallido: credenciales inválidas"
+      );
       return { error: "Credenciales inválidas" };
     }
 
@@ -135,19 +178,41 @@ export async function iniciarSesion(
         p_detalles: { motivo: "cuenta_inactiva" },
       });
       await supabase.auth.signOut();
-      console.timeEnd("login:total");
+      logger.warn(
+        {
+          accion: "iniciar_sesion",
+          motivo: "cuenta_inactiva",
+          ip,
+          duracion_ms: Date.now() - inicioTotal,
+          duracion_ms_gotrue: duracionGotrue,
+        },
+        "Login bloqueado: cuenta inactiva"
+      );
       return { error: "Credenciales inválidas" };
     }
 
-    console.time("login:registro");
+    const inicioRegistro = Date.now();
     await safeRpc(supabase, "registrar_login_exitoso", {
       p_usuario_id: authData.user.id,
       p_usuario: usuarioNormalizado,
       p_ip_address: ip,
     });
-    console.timeEnd("login:registro");
+    const duracionRegistro = Date.now() - inicioRegistro;
 
-    console.timeEnd("login:total");
+    logger.info(
+      {
+        accion: "iniciar_sesion",
+        resultado: "exitoso",
+        usuario_id: authData.user.id,
+        rol_id: contextoData.rol_id,
+        ip,
+        duracion_ms_total: Date.now() - inicioTotal,
+        duracion_ms_contexto: duracionContexto,
+        duracion_ms_gotrue: duracionGotrue,
+        duracion_ms_registro: duracionRegistro,
+      },
+      "Login exitoso"
+    );
 
     if (!contextoData.contraseña_cambiada_en) {
       redirect("/auth/cambiar-contrasena");
@@ -161,7 +226,14 @@ export async function iniciarSesion(
     if ((error as { digest?: string })?.digest) {
       throw error;
     }
-    console.error("Error en iniciarSesion:", error);
+    logger.error(
+      {
+        accion: "iniciar_sesion",
+        err: error,
+        usuario: usuarioNormalizado,
+      },
+      "Error en iniciarSesion"
+    );
     return { error: "Credenciales inválidas" };
   }
 }
@@ -195,6 +267,7 @@ export async function cambiarContrasena(
   }
 
   const { contrasena_actual, contrasena_nueva } = validacion.data;
+  const logger = await obtenerLogger();
 
   try {
     const supabase = await crearClienteServidor();
@@ -223,7 +296,15 @@ export async function cambiarContrasena(
     });
 
     if (errorUpdate) {
-      console.error("Error al actualizar contraseña:", errorUpdate);
+      logger.error(
+        {
+          accion: "cambiar_contrasena",
+          err: errorUpdate,
+          usuario_id: user.id,
+          ip,
+        },
+        "Error al actualizar contraseña"
+      );
       return { error: "Error al cambiar la contraseña. Intente nuevamente." };
     }
 
@@ -254,7 +335,13 @@ export async function cambiarContrasena(
     if ((error as { digest?: string })?.digest) {
       throw error;
     }
-    console.error("Error en cambiarContrasena:", error);
+    logger.error(
+      {
+        accion: "cambiar_contrasena",
+        err: error,
+      },
+      "Error en cambiarContrasena"
+    );
     return { error: "Error interno del servidor. Intente nuevamente." };
   }
 }

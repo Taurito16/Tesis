@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
 import { headers } from "next/headers";
+import { obtenerLogger } from "@/lib/registro";
 
 function obtenerTransporte(): Transporter {
   const host = process.env.SMTP_HOST;
@@ -36,6 +37,8 @@ export async function enviarInvitacion(
   nombre: string,
   link: string
 ): Promise<void> {
+  const logger = await obtenerLogger();
+  const inicio = Date.now();
   const transporte = obtenerTransporte();
 
   await transporte.sendMail({
@@ -55,4 +58,9 @@ export async function enviarInvitacion(
       "Si no esperabas esta invitación, ignora este correo.",
     ].join("\n"),
   });
+
+  logger.info(
+    { accion: "enviar_invitacion", duracion_ms: Date.now() - inicio },
+    "Invitación enviada por correo"
+  );
 }

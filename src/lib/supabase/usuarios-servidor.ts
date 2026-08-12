@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { crearClienteServidor } from "./servidor";
+import { obtenerLogger } from "@/lib/registro";
 
 export type PerfilAdmin = {
   id: string;
@@ -20,7 +21,11 @@ export const obtenerPerfilesAdmin = cache(async (): Promise<PerfilAdmin[]> => {
   const { data, error } = await supabase.rpc("obtener_perfiles_admin");
 
   if (error) {
-    console.error("Error al obtener perfiles de administración:", error.message);
+    const logger = await obtenerLogger();
+    logger.error(
+      { accion: "obtener_perfiles_admin", err: error },
+      "Error al obtener perfiles de administración"
+    );
     return [];
   }
 
@@ -54,7 +59,11 @@ export const obtenerRolesCrear = cache(async (): Promise<RolCreable[]> => {
   const { data, error } = await supabase.rpc("obtener_roles_creables");
 
   if (error) {
-    console.error("Error al obtener roles creables:", error.message);
+    const logger = await obtenerLogger();
+    logger.error(
+      { accion: "obtener_roles_creables", err: error },
+      "Error al obtener roles creables"
+    );
     return [];
   }
 

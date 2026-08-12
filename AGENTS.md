@@ -7,7 +7,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 # Hospital-Tesis
 
 ## Next.js 16 quirks
-- `middleware.ts` → `proxy.ts`. File at root (`proxy.ts`), named export `proxy`, config `matcher`.
+- `middleware.ts` → `proxy.ts`. File at `src/proxy.ts` (same level as `app/`), named export `proxy`, config `matcher`.
 - `params` and `searchParams` in pages/layouts are `Promise<>` — must `await` them.
 - `cookies()` from `next/headers` is async: `const cookieStore = await cookies()`.
 - `proxy.ts` defaults to Node.js runtime (no `runtime` config allowed).
@@ -18,8 +18,10 @@ pnpm install              # install dependencies (use --frozen-lockfile in CI)
 pnpm dev                  # dev server on localhost:3000
 pnpm build                # builds + typechecks (no separate typecheck script)
 pnpm lint                 # ESLint only
+pnpm dev | pnpm exec pino-pretty   # dev server with pretty JSON logs
+node scripts/verificar-observabilidad.mjs --contrasena '<pw>'   # verificación E2E de logs pino (proxies, correlación request_id, redacción, niveles)
 ```
-No test framework is configured.
+Tests: vitest (`pnpm test`).
 
 ## Supabase auth — three client factories
 | File | Import | Context |
@@ -41,6 +43,14 @@ DB migration: `supabase/migracion.sql` — must be run manually in Supabase SQL 
 ## Tailwind CSS v4
 - `@import "tailwindcss"` (not `@tailwind` directives).
 - Custom `cn()` utility from `src/lib/utilidades.ts`.
+
+## Observability
+- Structured JSON logging with pino via `src/lib/registro.ts` (`crearLogger`, singleton `logger`, `obtenerLogger()` for request scope). **Never use `console.*`** — use the logger.
+- Correlation: `proxy.ts` generates/forwards `x-request-id` (AsyncLocalStorage via `runConRequestId` + response header). `obtenerLogger()` falls back to reading the header with `headers()`.
+- Sensitive fields are redacted to `[REDACTADO]`: password, contrasena, token, invitacion_token_hash, authorization, cookie, correo, email.
+- Level via `LOG_LEVEL` env (default `info`). Base fields: `env`, `servicio: "hospital-tesis"`.
+- Log message keys in Spanish (e.g., `accion`, `motivo`, `ip`, `duracion_ms`). Server actions log with `obtenerLogger()` for `request_id`.
+- Dev prettify: `pnpm dev | pnpm exec pino-pretty`. `pino-pretty` is a devDependency used only from the shell (never imported).
 
 ## Conventions
 - `.env*` in `.gitignore`. Dev requires `.env.local` with `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, optional SMTP vars.
