@@ -57,3 +57,19 @@ DB migration: `supabase/migracion.sql` — must be run manually in Supabase SQL 
 - Component folder uses Spanish plural: `componentes/` not `components/`.
 - Interface names prefixed with `Props` (e.g., `PropsBoton`), Spanish for component props.
 - `"use client"` at component level, not in barrel files.
+
+## Tablas: patrón enterprise ya aplicado
+- `Tabla` (`src/componentes/ui/tabla.tsx`) acepta `rellenar` → región de scroll interno que llena el alto disponible (`flex-1 min-h-0 overflow-auto`), `thead` sticky, paginación anclada abajo. Usado en `/usuarios`.
+- El panel (`panel-layout.tsx`) es `h-dvh overflow-hidden`; `main` con `overflow-y-auto` (red de seguridad). No usar `calc(100vh - X)` con números mágicos — usar flexbox (`rellenar`).
+- `Paginacion` (`src/componentes/ui/paginacion.tsx`) es client component con `usePathname`+`useSearchParams`+`useRouter`; URL es la fuente de verdad (`?pagina=&tamano=`).
+
+## Roadmap — Scroll infinito para módulos restantes
+Los módulos `/pacientes`, `/recien-nacidos`, `/consulta-rapida` y `/reportes` son stubs (solo `<h1>`) y aplicarán **scroll infinito** cuando tengan datos. NO traer todos los registros de golpe (10k filas rompen el navegador). Método de las grandes empresas:
+
+1. **Cursor/keyset pagination (server-side)**: NUNCA offset/`OFFSET` para feeds (duplica/omite filas si cambian datos). Nuevo RPC estilo `obtener_x_paginado(p_desde_id UUID)` → `WHERE id > p_desde_id ORDER BY id LIMIT 50`, devolviendo `siguiente_id` (o `NULL` al terminar). Lotes de 20–50 filas por petición.
+2. **IntersectionObserver (sentinel)**: elemento invisible bajo la última fila dispara la carga con `rootMargin` de ~200–800px. NO `scroll` listeners (jank). `AbortController` para cancelar peticiones obsoletas.
+3. **Virtualización** (`@tanstack/react-virtual` o `react-virtuoso`) SOLO si el dataset pasa de ~1,000 filas; renderiza solo las visibles + overscan (~30–50 nodos). Con `<100` filas es overkill.
+4. **Estado**: `useInfiniteQuery` (TanStack Query) para cache/dedupe, o estado local con merge por página. Componente client (datos ya no se renderizan en server como en `/usuarios`).
+5. **Accesibilidad**: botón "Cargar más" visible como fallback + `aria-busy`. El patrón ARIA de feed es obligatorio, no opcional.
+6. **Excepción**: `/reportes` mantiene **paginación numerada** (auditoría necesita "ir a la página 3 de 40"), no scroll infinito — estándar del sector.
+7. **Count**: mostrar total disponible ("mostrando X–Y de Z") cuando el count sea barato; ocultarlo si es caro de calcular.

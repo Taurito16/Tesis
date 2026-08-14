@@ -9,11 +9,11 @@ export default async function PanelLayout({ children }: { children: React.ReactN
   const iniciales = formatearIniciales(nombreUsuario);
 
   return (
-    <div className="min-h-dvh flex flex-col bg-gray-50 ">
+    <div className="flex h-dvh flex-col overflow-hidden bg-gray-50">
       <Encabezado nombreUsuario={nombreUsuario} iniciales={iniciales} />
-      <div className="flex-1 flex">
+      <div className="flex min-h-0 flex-1">
         <BarraLateral />
-        <main className="flex-1 p-6 overflow-auto">{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto p-6">{children}</main>
       </div>
     </div>
   );

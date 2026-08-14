@@ -32,6 +32,38 @@ export const obtenerPerfilesAdmin = cache(async (): Promise<PerfilAdmin[]> => {
   return (data as PerfilAdmin[]) ?? [];
 });
 
+export type ResultadoPerfilesPaginados = {
+  perfiles: PerfilAdmin[];
+  total: number;
+};
+
+export const obtenerPerfilesAdminPaginados = cache(
+  async (pagina: number, tamano: number): Promise<ResultadoPerfilesPaginados> => {
+    const supabase = await crearClienteServidor();
+    const [resultado, total] = await Promise.all([
+      supabase.rpc("obtener_perfiles_admin_paginado", {
+        p_pagina: pagina,
+        p_tamano: tamano,
+      }),
+      supabase.rpc("contar_perfiles_admin"),
+    ]);
+
+    if (resultado.error) {
+      const logger = await obtenerLogger();
+      logger.error(
+        { accion: "obtener_perfiles_admin_paginado", err: resultado.error },
+        "Error al obtener perfiles paginados"
+      );
+      return { perfiles: [], total: 0 };
+    }
+
+    return {
+      perfiles: (resultado.data as PerfilAdmin[]) ?? [],
+      total: (total.data as number) ?? 0,
+    };
+  }
+);
+
 export type RolCreable = {
   id: number;
   nombre: string;

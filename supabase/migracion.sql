@@ -53,6 +53,7 @@ CREATE INDEX IF NOT EXISTS idx_perfiles_rol ON public.perfiles(rol_id);
 CREATE INDEX IF NOT EXISTS idx_perfiles_creado_por ON public.perfiles(creado_por);
 CREATE INDEX IF NOT EXISTS idx_perfiles_activo ON public.perfiles(activo) WHERE activo = TRUE;
 CREATE INDEX IF NOT EXISTS idx_perfiles_invitacion_hash ON public.perfiles(invitacion_token_hash);
+CREATE INDEX IF NOT EXISTS idx_perfiles_nombre_paginado ON public.perfiles(nombre, apellidos, id);
 
 -- Compatibilidad con bases existentes (idempotente)
 ALTER TABLE public.perfiles
@@ -348,6 +349,91 @@ BEGIN
   LEFT JOIN public.roles r ON r.id = p.rol_id
   LEFT JOIN public.perfiles c ON c.id = p.creado_por
   ORDER BY p.nombre, p.apellidos;
+END;
+$$;
+
+-- =============================================================
+-- FUNCIÓN: obtener_perfiles_admin_paginado
+-- Igual que obtener_perfiles_admin pero con paginación server-side.
+-- p_tamano está acotado a 100 en el servidor para evitar abuso
+-- (un page_size enorme burlaría el control de carga).
+-- El orden es determinista: nombre, apellidos e id como
+-- tie-breaker único para evitar duplicados/huecos entre páginas.
+-- =============================================================
+CREATE OR REPLACE FUNCTION public.obtener_perfiles_admin_paginado(
+  p_pagina INTEGER DEFAULT 1,
+  p_tamano INTEGER DEFAULT 10
+)
+RETURNS TABLE (
+  id UUID,
+  nombre TEXT,
+  apellidos TEXT,
+  usuario TEXT,
+  correo TEXT,
+  rol_id INTEGER,
+  rol_nombre TEXT,
+  activo BOOLEAN,
+  creado_por UUID,
+  creador_usuario TEXT,
+  creador_nombre TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  limite INTEGER;
+  desplazamiento INTEGER;
+BEGIN
+  IF NOT public.es_administrador() THEN
+    RAISE EXCEPTION 'Solo administradores';
+  END IF;
+
+  limite := LEAST(GREATEST(p_tamano, 1), 100);
+  desplazamiento := (GREATEST(p_pagina, 1) - 1) * limite;
+
+  RETURN QUERY
+  SELECT
+    p.id,
+    p.nombre,
+    p.apellidos,
+    p.usuario,
+    p.correo,
+    p.rol_id,
+    r.nombre,
+    p.activo,
+    p.creado_por,
+    c.usuario,
+    NULLIF(TRIM(c.nombre || ' ' || c.apellidos), '')
+  FROM public.perfiles p
+  LEFT JOIN public.roles r ON r.id = p.rol_id
+  LEFT JOIN public.perfiles c ON c.id = p.creado_por
+  ORDER BY p.nombre, p.apellidos, p.id
+  LIMIT limite OFFSET desplazamiento;
+END;
+$$;
+
+-- =============================================================
+-- FUNCIÓN: contar_perfiles_admin
+-- Total de perfiles visibles para administradores. Se usa para
+-- calcular las páginas de la tabla. Mismo chequeo de seguridad
+-- que su contraparte paginada.
+-- =============================================================
+CREATE OR REPLACE FUNCTION public.contar_perfiles_admin()
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  total INTEGER;
+BEGIN
+  IF NOT public.es_administrador() THEN
+    RAISE EXCEPTION 'Solo administradores';
+  END IF;
+
+  SELECT COUNT(*) INTO total FROM public.perfiles p;
+  RETURN total;
 END;
 $$;
 

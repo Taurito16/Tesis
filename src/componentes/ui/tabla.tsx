@@ -5,11 +5,18 @@ import type {
   ThHTMLAttributes,
 } from "react";
 
-type PropsTabla = HTMLAttributes<HTMLTableElement>;
+type PropsTabla = HTMLAttributes<HTMLTableElement> & {
+  rellenar?: boolean;
+};
 
-export function Tabla({ className, ...props }: PropsTabla) {
+export function Tabla({ className, rellenar = false, ...props }: PropsTabla) {
   return (
-    <div className="relative w-full overflow-x-auto">
+    <div
+      className={cn(
+        "relative w-full",
+        rellenar ? "min-h-0 flex-1 overflow-auto" : "overflow-x-auto"
+      )}
+    >
       <table
         className={cn("w-full caption-bottom text-sm", className)}
         {...props}
@@ -66,7 +73,7 @@ export function TablaTitulo({ className, ...props }: PropsTablaTitulo) {
     <th
       scope="col"
       className={cn(
-        "h-12 px-4 text-left align-middle text-xs font-[600] uppercase tracking-wide text-gray-900 whitespace-nowrap",
+        "sticky top-0 z-10 bg-white h-12 px-4 text-left align-middle text-xs font-[600] uppercase tracking-wide text-gray-900 whitespace-nowrap",
         className
       )}
       {...props}

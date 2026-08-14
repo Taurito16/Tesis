@@ -34,7 +34,7 @@ export function BarraLateral() {
       <aside
         ref={refSidebar}
         className={cn(
-          "mx-3 my-3 rounded-[32px] bg-primary-500  flex flex-col shrink-0 sticky top-3 max-h-[calc(100vh-1.5rem)]",
+          "mx-3 my-3 rounded-[32px] bg-primary-500  flex flex-col shrink-0 sticky top-[68px] max-h-[calc(100vh-5.5rem)]",
           "overflow-hidden",
           inicializado && "transition-[width] duration-300 ease-in-out"
         )}
