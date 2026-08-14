@@ -46,6 +46,7 @@ DB migration: `supabase/migracion.sql` — must be run manually in Supabase SQL 
 
 ## Observability
 - Structured JSON logging with pino via `src/lib/registro.ts` (`crearLogger`, singleton `logger`, `obtenerLogger()` for request scope). **Never use `console.*`** — use the logger.
+- **Enforced by ESLint**: `no-console` is an error in `eslint.config.mjs`. Exception: CLI scripts under `scripts/**/*.mjs` (they run outside the app and legitimately print to stdout/stderr). If a build fails with a `no-console` error, replace `console.*` with the logger.
 - Correlation: `proxy.ts` generates/forwards `x-request-id` (AsyncLocalStorage via `runConRequestId` + response header). `obtenerLogger()` falls back to reading the header with `headers()`.
 - Sensitive fields are redacted to `[REDACTADO]`: password, contrasena, token, invitacion_token_hash, authorization, cookie, correo, email.
 - Level via `LOG_LEVEL` env (default `info`). Base fields: `env`, `servicio: "hospital-tesis"`.
@@ -62,6 +63,15 @@ DB migration: `supabase/migracion.sql` — must be run manually in Supabase SQL 
 - `Tabla` (`src/componentes/ui/tabla.tsx`) acepta `rellenar` → región de scroll interno que llena el alto disponible (`flex-1 min-h-0 overflow-auto`), `thead` sticky, paginación anclada abajo. Usado en `/usuarios`.
 - El panel (`panel-layout.tsx`) es `h-dvh overflow-hidden`; `main` con `overflow-y-auto` (red de seguridad). No usar `calc(100vh - X)` con números mágicos — usar flexbox (`rellenar`).
 - `Paginacion` (`src/componentes/ui/paginacion.tsx`) es client component con `usePathname`+`useSearchParams`+`useRouter`; URL es la fuente de verdad (`?pagina=&tamano=`).
+
+## Estados de carga y error: obligatorios en cada vista
+- **Toda vista que lea datos asíncronos DEBE tener un `loading.tsx`** con skeleton (`Esqueleto*` de `src/componentes/ui/esqueleto-*.tsx`) que replique la estructura y alto final del contenido (paridad: `rellenar` si la vista llena el alto). Sin skeleton → la vista siente un salto de layout; se considera bug.
+- **Toda vista con fetch DEBE tener un `error.tsx`** (client component con `"use client"`) que muestre un error legible y un botón de reintento (`router.refresh()`). Solo el error se loguea con `obtenerLogger()`, NUNCA se imprime el error crudo en la UI.
+- El cambio de ruta entre páginas (`.next/link`) muestra el `loading.tsx` por defecto; no añadir spinners manuales duplicados salvo que la operación sea cliente-servidor (ej. submit de formulario).
+- Referencia de componentes de estado: `src/componentes/ui/esqueleto.tsx`, `esqueleto-tabla.tsx`. Reusar primitivas, no crear skeletons a mano con `animate-pulse` inline.
+
+## Tipado estricto
+- `strict: true` en `tsconfig.json`. `pnpm build` ejecuta typecheck — el build falla con cualquier error de tipos. NUNCA silenciar con `@ts-ignore`, `as unknown` o `any`; si un tipo limita, modelarlo correctamente (discriminated union, `satisfies`, etc).
 
 ## Roadmap — Scroll infinito para módulos restantes
 Los módulos `/pacientes`, `/recien-nacidos`, `/consulta-rapida` y `/reportes` son stubs (solo `<h1>`) y aplicarán **scroll infinito** cuando tengan datos. NO traer todos los registros de golpe (10k filas rompen el navegador). Método de las grandes empresas:
